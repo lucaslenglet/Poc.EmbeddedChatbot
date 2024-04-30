@@ -15,11 +15,13 @@ public class HomeController : Controller
         return View();
     }
 
-    public IActionResult ChatBot([FromServices] IConfiguration configuration, string? convKey)
+    public IActionResult ChatBot([FromServices] IConfiguration configuration, string? convKey, string? userName)
     {
         var model = new ChatBotViewModel
         {
-            Url = $"{configuration.GetValue<string>("ChatbotUrl")}?convKey={HttpUtility.UrlEncode(convKey?.ToLower())}"
+            Url = $"{configuration.GetValue<string>("ChatbotUrl")}?convkey={HttpUtility.UrlEncode(convKey?.ToLower())}&username={HttpUtility.UrlEncode(userName)}",
+            ConvKey = convKey,
+            UserName = userName
         };
 
         return View(model);

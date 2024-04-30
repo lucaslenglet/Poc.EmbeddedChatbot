@@ -1,5 +1,9 @@
 ﻿@model ChatBotViewModel
 
+@{
+    ViewData["Title"] = "ChatBot";
+}
+
 <iframe 
     title="chatbot"
     width="500"
@@ -11,6 +15,10 @@
 
 <form>
     <label for="convKey">Conversation Key :</label>
-    <input type="text" id="convKey" name="convKey" />
+    <input type="text" id="convKey" name="convKey" value="@Model.ConvKey" />
+
+    <label for="userName">User name :</label>
+    <input type="text" id="userName" name="userName" value="@Model.UserName" />
+
     <input type="submit" value="Changer" />
 </form>

@@ -5,31 +5,31 @@
 
 <div class="chatbot">
     <div class="chatbot__header">
-        <h1>BlazorBot</h1>
+        <h1>BlazorBot (@ConversationKey)</h1>
     </div>
 
     <div class="chatbot__chat">
         @foreach (var message in Messages)
-    {
-        if (message is BotMessageType)
         {
-            <div class="chatbot__chat__message">
+            if (message is BotMessageType)
+            {
+                <div class="chatbot__chat__message">
                     <span class="chatbot__chat__message__name">BlazorBot</span>
                     <span class="bot__message__content">@message.Value</span>
                 </div>
-        }
-        else if (message is UserMessageType)
-        {
-            <div class="chatbot__chat__message">
-                    <span class="chatbot__chat__message__name">User</span>
+            }
+            else if (message is UserMessageType)
+            {
+                <div class="chatbot__chat__message">
+                    <span class="chatbot__chat__message__name">@UserName</span>
                     <span class="user__message__content">@message.Value</span>
                 </div>
+            }
         }
-    }
 
         @if (IsBotTyping)
-    {
-        <div class="chatbot__chat__message">
+        {
+            <div class="chatbot__chat__message">
                 <span class="chatbot__chat__message__name">BlazorBot</span>
                 <div class="botTyping">
                     <div class="bounce1"></div>
@@ -37,15 +37,13 @@
                     <div class="bounce3"></div>
                 </div>
             </div>
-    }
+        }
     </div>
 
     <div class="chatbot__inputs">
-        <textarea
-            placeholder="Ecrire un messagge..."
-            @bind="Text">
-        </textarea>
-        <input type="button" @onclick="OnClick" value="Envoyer" />
+        <textarea autofocus placeholder="Ecrire un messagge..." @bind=Text @ref=TextArea></textarea>
+        <input type="button" value="Envoyer" @onclick=OnSend disabled=@IsBotTyping />
+        <input type="button" value="Recommencer" @onclick=OnRestart disabled=@(Messages.Count == 0) />
     </div>
 </div>
 
@@ -57,60 +55,67 @@
 </script>
 
 @code {
-private string? Text;
-private bool IsBotTyping = false;
-private List<ChatMessageType> Messages = [];
+    private string? Text;
+    private bool IsBotTyping = false;
+    private List<ChatMessageType> Messages = [];
+    private string CacheKey => $"chatbot-ck-{ConversationKey!}";
+    private ElementReference TextArea;
 
-[Parameter]
-public string? ConversationKey { get; set; }
+    [Parameter]
+    public string? ConversationKey { get; set; }
 
-protected override void OnParametersSet()
-{
-    if (string.IsNullOrWhiteSpace(ConversationKey))
+    [Parameter]
+    public string? UserName { get; set; }
+
+    protected override void OnParametersSet()
     {
-        return;
+        UserName = string.IsNullOrWhiteSpace(UserName) ? "User" : UserName;
+        ConversationKey = string.IsNullOrWhiteSpace(ConversationKey) ? "default" : ConversationKey;
+
+        if (cache.TryGetValue<List<ChatMessageType>>(CacheKey, out var messages))
+        {
+            Messages = messages!;
+        }
     }
 
-    if (cache.TryGetValue<List<ChatMessageType>>($"chatbot-{ConversationKey}", out var messages))
+    private async Task OnSend()
     {
-        Messages = messages!;
-    }
-}
+        if (string.IsNullOrWhiteSpace(Text))
+        {
+            return;
+        }
 
-private async Task OnClick()
-{
-    IsBotTyping = true;
+        Messages.Add(new UserMessageType(Text));
 
-    if (string.IsNullOrWhiteSpace(Text))
-    {
+        IsBotTyping = true;
+        Text = string.Empty;
+
+        // await Task.Delay(TimeSpan.FromMilliseconds(Random.Shared.Next(30)) * 100);
+        // var reponse = new Bogus.Faker().Lorem.Paragraph(Random.Shared.Next(10));
+
+        var prompts = Messages
+            .Select(m => new Prompt
+                {
+                    Role = m is BotMessageType ? EPromptRole.Assistant : EPromptRole.User,
+                    Content = m.Value,
+                });
+
+        var reponse = await aiService.AskAsync(prompts)!;
+
         IsBotTyping = false;
-        return;
+
+        Messages.Add(new BotMessageType(reponse));
+
+        await JS.InvokeVoidAsync("scrollToBottomOfChat");
+        await TextArea.FocusAsync();
+
+        cache.Set(CacheKey, Messages);
     }
 
-    Messages.Add(new UserMessageType(Text));
-
-    // await Task.Delay(TimeSpan.FromMilliseconds(Random.Shared.Next(30)) * 100);
-
-    // var reponse = new Bogus.Faker().Lorem.Paragraph(Random.Shared.Next(10));
-
-    var prompts = Messages.Select(m => new Prompt
+    private async Task OnRestart()
     {
-        Role = m is BotMessageType ? EPromptRole.Assistant : EPromptRole.User,
-        Content = m.Value,
-    });
-
-    var reponse = await aiService.AskAsync(prompts)!;
-
-    Messages.Add(new BotMessageType(reponse));
-
-    if (!string.IsNullOrWhiteSpace(ConversationKey))
-    {
-        cache.Set($"chatbot-{ConversationKey}", Messages);
+        Messages = [];
+        cache.Remove(CacheKey);
+        await TextArea.FocusAsync();
     }
-
-    await JS.InvokeVoidAsync("scrollToBottomOfChat");
-
-    Text = string.Empty;
-    IsBotTyping = false;
-}
 }

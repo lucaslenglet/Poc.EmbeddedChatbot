@@ -1,23 +1,32 @@
-﻿namespace Poc.EmbeddedChatbot.BlazorBot.Services;
+﻿using Microsoft.Extensions.Options;
+
+namespace Poc.EmbeddedChatbot.BlazorBot.Services.Ai;
 
 public class PerplexityAiService
 {
     private readonly HttpClient _httpClient;
     private readonly ILogger<PerplexityAiService> _logger;
+    private readonly IOptionsSnapshot<PerplexityAiOptions> _options;
 
-    public PerplexityAiService(HttpClient httpClient, ILogger<PerplexityAiService> logger)
+    public PerplexityAiService(
+        HttpClient httpClient,
+        ILogger<PerplexityAiService> logger,
+        IOptionsSnapshot<PerplexityAiOptions> options)
     {
         _httpClient = httpClient;
         _logger = logger;
+        _options = options;
     }
 
     public async Task<string> AskAsync(IEnumerable<Prompt> prompts, CancellationToken cancellationToken = default)
     {
-        var req = new ChatCompletionsRequest
+        var options = _options.Value;
+
+        var request = new ChatCompletionsRequest
         {
-            model = "sonar-small-chat",
+            model = options.Model,
             messages = [
-                new ChatCompletionsMessageRequest() { role = "system", content = "Sois précis et réponds en francais !" },
+                .. options.SystemPrompts.Select(sp => new ChatCompletionsMessageRequest() { role = "system", content = sp }),
                 .. prompts.Select(p => new ChatCompletionsMessageRequest()
                 {
                     role = p.Role.ToString().ToLower(),
@@ -26,7 +35,7 @@ public class PerplexityAiService
             ]
         };
 
-        using var response = await _httpClient.PostAsJsonAsync("/chat/completions", req, cancellationToken);
+        using var response = await _httpClient.PostAsJsonAsync(PerplexityAiRoutes.ChatCompletions, request, cancellationToken);
 
         try
         {

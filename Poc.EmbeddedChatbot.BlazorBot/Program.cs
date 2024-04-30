@@ -7,14 +7,8 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
-builder.Services.AddHttpClient<PerplexityAiService>(configure =>
-{
-    configure.BaseAddress = new Uri("https://api.perplexity.ai/");
-    configure.DefaultRequestHeaders.Add("Accept", "application/json");
-    configure.DefaultRequestHeaders.Add("authorization", builder.Configuration.GetValue<string>("PerplexityAiApiKey"));
-});
-
 builder.Services.AddMemoryCache();
+builder.Services.AddPocServices(builder.Configuration);
 
 var app = builder.Build();
 
