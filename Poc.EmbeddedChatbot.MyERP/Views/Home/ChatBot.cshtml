@@ -1,0 +1,16 @@
+﻿@model ChatBotViewModel
+
+<iframe 
+    title="chatbot"
+    width="500"
+    height="500"
+    style="border: 1px solid black;width:100%"
+    src="@Model.Url">
+</iframe>
+
+
+<form>
+    <label for="convKey">Conversation Key :</label>
+    <input type="text" id="convKey" name="convKey" />
+    <input type="submit" value="Changer" />
+</form>

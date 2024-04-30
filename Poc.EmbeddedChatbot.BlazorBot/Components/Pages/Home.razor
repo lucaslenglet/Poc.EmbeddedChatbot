@@ -1,0 +1,8 @@
+﻿@page "/"
+
+<ChatBot ConversationKey=@ConvKey />
+
+@code {
+[SupplyParameterFromQuery(Name = "convKey")]
+public string? ConvKey { get; set; }
+}
