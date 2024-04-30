@@ -1,7 +1,6 @@
 ﻿@inject IJSRuntime JS
-@inject PerplexityAiService aiService
-@inject IMemoryCache cache
-@rendermode @(new InteractiveServerRenderMode(prerender: false))
+@inject HttpClient Http
+@rendermode @(new InteractiveWebAssemblyRenderMode(prerender: false))
 
 <div class="chatbot">
     <div class="chatbot__header">
@@ -39,13 +38,14 @@
             </div>
         }
     </div>
-
     <div class="chatbot__inputs">
-        <textarea autofocus placeholder="Ecrire un messagge..." @bind=Text @ref=TextArea></textarea>
+        <textarea autofocus placeholder="Ecrire un message..." @bind=Text @ref=TextArea></textarea>
         <input type="button" value="Envoyer" @onclick=OnSend disabled=@IsBotTyping />
         <input type="button" value="Recommencer" @onclick=OnRestart disabled=@(Messages.Count == 0) />
     </div>
 </div>
+
+
 
 <script>
     window.scrollToBottomOfChat = () => {
@@ -71,11 +71,6 @@
     {
         UserName = string.IsNullOrWhiteSpace(UserName) ? "User" : UserName;
         ConversationKey = string.IsNullOrWhiteSpace(ConversationKey) ? "default" : ConversationKey;
-
-        if (cache.TryGetValue<List<ChatMessageType>>(CacheKey, out var messages))
-        {
-            Messages = messages!;
-        }
     }
 
     private async Task OnSend()
@@ -90,32 +85,28 @@
         IsBotTyping = true;
         Text = string.Empty;
 
-        // await Task.Delay(TimeSpan.FromMilliseconds(Random.Shared.Next(30)) * 100);
-        // var reponse = new Bogus.Faker().Lorem.Paragraph(Random.Shared.Next(10));
-
         var prompts = Messages
             .Select(m => new Prompt
-                {
-                    Role = m is BotMessageType ? EPromptRole.Assistant : EPromptRole.User,
-                    Content = m.Value,
-                });
+            {
+                Role = m is BotMessageType ? EPromptRole.Assistant : EPromptRole.User,
+                Content = m.Value,
+            })
+            .ToArray();
 
-        var reponse = await aiService.AskAsync(prompts)!;
+        var response = await Http.PostAsJsonAsync("/ask", new AskRequest { Prompts = prompts });
+        var askResponse = await response.Content.ReadFromJsonAsync<AskResponse>();
 
         IsBotTyping = false;
 
-        Messages.Add(new BotMessageType(reponse));
+        Messages.Add(new BotMessageType(askResponse?.Response ?? "Je n'ai pas de réponse à te fournir... 😒"));
 
         await JS.InvokeVoidAsync("scrollToBottomOfChat");
         await TextArea.FocusAsync();
-
-        cache.Set(CacheKey, Messages);
     }
 
     private async Task OnRestart()
     {
         Messages = [];
-        cache.Remove(CacheKey);
         await TextArea.FocusAsync();
     }
 }

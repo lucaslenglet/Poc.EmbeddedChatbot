@@ -1,4 +1,4 @@
-﻿namespace Poc.EmbeddedChatbot.BlazorBot.Services.Ai;
+﻿namespace Poc.EmbeddedChatbot.BlazorBot.Shared.Models;
 
 public class Prompt
 {

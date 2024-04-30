@@ -1,4 +1,5 @@
 ﻿using Microsoft.Extensions.Options;
+using Poc.EmbeddedChatbot.BlazorBot.Shared.Models;
 
 namespace Poc.EmbeddedChatbot.BlazorBot.Services.Ai;
 
