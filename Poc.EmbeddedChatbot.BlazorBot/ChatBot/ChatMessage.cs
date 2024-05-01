@@ -1,4 +1,4 @@
-﻿namespace Poc.EmbeddedChatbot.BlazorBot.Models;
+﻿namespace Poc.EmbeddedChatbot.BlazorBot.ChatBot;
 
 public abstract record ChatMessageType(string Value);
 

@@ -86,7 +86,7 @@
     background-color: lightgray;
 }
 
-    .chatbot__inputs textarea {
+    .chatbot__inputs div {
         flex-grow: 1;
         height: 8em;
     }

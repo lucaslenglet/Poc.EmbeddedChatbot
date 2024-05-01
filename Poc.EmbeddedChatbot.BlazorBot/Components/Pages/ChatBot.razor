@@ -1,7 +1,8 @@
-﻿@inject IJSRuntime JS
+﻿@page "/"
+@inject IJSRuntime JS
 @inject PerplexityAiService aiService
 @inject IMemoryCache cache
-@rendermode @(new InteractiveServerRenderMode(prerender: false))
+@attribute [StreamRendering]
 
 <div class="chatbot">
     <div class="chatbot__header">
@@ -40,58 +41,49 @@
         }
     </div>
 
-    <div class="chatbot__inputs">
-        <textarea autofocus placeholder="Ecrire un messagge..." @bind=Text @ref=TextArea></textarea>
-        <input type="button" value="Envoyer" @onclick=OnSend disabled=@IsBotTyping />
-        <input type="button" value="Recommencer" @onclick=OnRestart disabled=@(Messages.Count == 0) />
-    </div>
+    <EditForm Model="Model" FormName="ChatInputs" OnSubmit=OnSubmit Enhance>
+        <div class="chatbot__inputs">
+            <div>
+                <InputTextArea placeholder="Ecrire un message..." @bind-Value=Model!.Text style="width: -webkit-fill-available;height: -webkit-fill-available;"></InputTextArea>
+            </div>
+            <input type="submit" value="Envoyer" disabled=@IsBotTyping />
+            <input type="button" value="Recommencer" disabled=@(Messages.Count == 0) />
+        </div>
+    </EditForm>
 </div>
 
 <script>
-    window.scrollToBottomOfChat = () => {
+    (function () {
         const terminalResultsDiv = document.getElementsByClassName("chatbot__chat")[0];
         terminalResultsDiv.scrollTop = terminalResultsDiv.scrollHeight;
-    }
+    })();
 </script>
 
-@code {
-    private string? Text;
+ @code {
     private bool IsBotTyping = false;
     private List<ChatMessageType> Messages = [];
     private string CacheKey => $"chatbot-ck-{ConversationKey!}";
-    private ElementReference TextArea;
 
-    [Parameter]
+    [SupplyParameterFromForm]
+    public ChatBotViewModel? Model { get; set; }
+
+    [SupplyParameterFromQuery(Name = "convkey")]
     public string? ConversationKey { get; set; }
 
-    [Parameter]
+    [SupplyParameterFromQuery(Name = "username")]
     public string? UserName { get; set; }
 
-    protected override void OnParametersSet()
+    private async Task OnSubmit()
     {
-        UserName = string.IsNullOrWhiteSpace(UserName) ? "User" : UserName;
-        ConversationKey = string.IsNullOrWhiteSpace(ConversationKey) ? "default" : ConversationKey;
-
-        if (cache.TryGetValue<List<ChatMessageType>>(CacheKey, out var messages))
-        {
-            Messages = messages!;
-        }
-    }
-
-    private async Task OnSend()
-    {
-        if (string.IsNullOrWhiteSpace(Text))
+        if (string.IsNullOrWhiteSpace(Model!.Text))
         {
             return;
         }
 
-        Messages.Add(new UserMessageType(Text));
+        Messages.Add(new UserMessageType(Model!.Text));
 
         IsBotTyping = true;
-        Text = string.Empty;
-
-        // await Task.Delay(TimeSpan.FromMilliseconds(Random.Shared.Next(30)) * 100);
-        // var reponse = new Bogus.Faker().Lorem.Paragraph(Random.Shared.Next(10));
+        Model!.Text = string.Empty;
 
         var prompts = Messages
             .Select(m => new Prompt
@@ -100,22 +92,26 @@
                     Content = m.Value,
                 });
 
+        await Task.Delay(2000);
         var reponse = await aiService.AskAsync(prompts)!;
 
         IsBotTyping = false;
 
         Messages.Add(new BotMessageType(reponse));
 
-        await JS.InvokeVoidAsync("scrollToBottomOfChat");
-        await TextArea.FocusAsync();
-
         cache.Set(CacheKey, Messages);
     }
 
-    private async Task OnRestart()
+    protected override void OnInitialized()
     {
-        Messages = [];
-        cache.Remove(CacheKey);
-        await TextArea.FocusAsync();
+        Model ??= new();
+
+        UserName = string.IsNullOrWhiteSpace(UserName) ? "User" : UserName;
+        ConversationKey = string.IsNullOrWhiteSpace(ConversationKey) ? "default" : ConversationKey;
+
+        if (cache.TryGetValue<List<ChatMessageType>>(CacheKey, out var messages))
+        {
+            Messages = messages!;
+        }
     }
 }
